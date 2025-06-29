@@ -1,0 +1,464 @@
+Windows 10 Hotspot Control Scripts - Testing Alternatives
+=======================================================
+
+This file contains Windows 10 specific command line alternatives for all mobile hotspot operations.
+Use these methods if any of our PowerShell scripts fail on Windows 10 systems.
+
+==================================================
+1. GET HOTSPOT STATUS & CREDENTIALS
+==================================================
+
+Method 1: Using netsh wlan (Windows 10 Legacy)
+----------------------------------------------
+# Check if hosted network is supported
+netsh wlan show drivers
+
+# Show hosted network settings
+netsh wlan show hostednetwork
+
+# Show hosted network with security key
+netsh wlan show hostednetwork setting=security
+
+Method 2: Using Registry Query
+-----------------------------
+# Get current hotspot credentials from registry
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\icssvc\Settings" /v PrivateConnectionSettings
+
+# Check if hotspot is enabled
+reg query "HKLM\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config" /s
+
+Method 3: Using WMI via Command Line
+-----------------------------------
+# Check network adapters
+wmic path win32_networkadapter where "adaptertype='Ethernet 802.3'" get name,netconnectionstatus
+
+# Get network adapter configuration
+wmic path win32_networkadapterconfiguration where "ipenabled=true" get description,ipaddress,defaultipgateway
+
+Method 4: Using PowerShell WMI (Fallback)
+-----------------------------------------
+powershell "Get-WmiObject -Class Win32_NetworkAdapter | Where-Object {$_.Name -like '*Virtual*'} | Select-Object Name,NetConnectionStatus"
+
+==================================================
+2. ENABLE MOBILE HOTSPOT
+==================================================
+
+Method 1: netsh wlan hosted network (Windows 10 Legacy)
+------------------------------------------------------
+# Set up hosted network
+netsh wlan set hostednetwork mode=allow ssid="TestHotspot" key="12345678"
+
+# Start hosted network
+netsh wlan start hostednetwork
+
+# Enable Internet Connection Sharing via command line
+# Note: Requires additional steps via Network Connections
+
+Method 2: Registry Modification + Service Restart
+------------------------------------------------
+# Enable hotspot via registry (requires admin)
+reg add "HKLM\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config" /v AllowWiFiTethering /t REG_DWORD /d 1 /f
+
+# Restart required services
+net stop "WcmSvc"
+net start "WcmSvc"
+net stop "icssvc"
+net start "icssvc"
+
+Method 3: Using Settings URI (Windows 10)
+-----------------------------------------
+# Open mobile hotspot settings directly
+start ms-settings:network-mobilehotspot
+
+Method 4: PowerShell Alternative (Without Windows Runtime)
+---------------------------------------------------------
+# Enable via WMI/CIM
+powershell "Get-CimInstance -Namespace root/Microsoft/Windows/NetworkOperators -ClassName NetworkOperatorTetheringAccessPoint"
+
+==================================================
+3. DISABLE MOBILE HOTSPOT
+==================================================
+
+Method 1: netsh wlan (Windows 10 Legacy)
+---------------------------------------
+# Stop hosted network
+netsh wlan stop hostednetwork
+
+# Disable hosted network mode
+netsh wlan set hostednetwork mode=disallow
+
+Method 2: Service Stop
+---------------------
+# Stop Internet Connection Sharing service
+net stop "icssvc"
+
+Method 3: Registry Disable
+-------------------------
+# Disable via registry
+reg add "HKLM\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config" /v AllowWiFiTethering /t REG_DWORD /d 0 /f
+
+==================================================
+4. SET HOTSPOT CREDENTIALS
+==================================================
+
+Method 1: netsh wlan (Windows 10 Legacy)
+---------------------------------------
+# Set SSID and password
+netsh wlan set hostednetwork ssid="NewSSID" key="NewPassword123"
+
+# Set different bands (requires specific adapter support)
+netsh wlan set hostednetwork mode=allow ssid="NewSSID" key="NewPassword123"
+
+Method 2: Direct Registry Modification
+-------------------------------------
+# WARNING: Complex binary format - use carefully
+# Export current settings first:
+reg export "HKLM\SYSTEM\CurrentControlSet\Services\icssvc\Settings" hotspot-backup.reg
+
+# Modify PrivateConnectionSettings (208-byte binary structure)
+# Format: [Header][SSID Unicode][Padding][Password Unicode][Band][Footer]
+# Use PowerShell for binary manipulation:
+powershell "# Complex binary format modification required"
+
+Method 3: PowerShell Binary Editor
+---------------------------------
+# Create PowerShell script to modify registry binary
+powershell "$ssid='TestSSID'; $pass='TestPass123'; # Binary encoding logic here"
+
+==================================================
+5. GET CONNECTED DEVICES
+==================================================
+
+Method 1: ARP Table Analysis
+---------------------------
+# Show all ARP entries
+arp -a
+
+# Show ARP entries for specific subnet
+arp -a | findstr "192.168.137"
+
+# Show detailed ARP table
+netsh interface ip show arpcache
+
+Method 2: Network Neighborhood Discovery
+---------------------------------------
+# Show network computers (if available)
+net view
+
+# Ping sweep local network
+for /L %i in (1,1,254) do @ping -n 1 -w 100 192.168.137.%i | find "Reply from"
+
+Method 3: netstat for Active Connections
+---------------------------------------
+# Show active connections
+netstat -an | findstr ":192.168.137"
+
+# Show connections with process IDs
+netstat -ano | findstr ":80"
+
+Method 4: Network Interface Statistics
+-------------------------------------
+# Show interface statistics
+netsh interface ip show interfaces
+
+# Show detailed interface info
+wmic path win32_networkadapter where "netconnectionstatus=2" get name,macaddress,netconnectionid
+
+Method 5: Advanced Network Tools (if available)
+----------------------------------------------
+# Using nmap (if installed)
+nmap -sn 192.168.137.0/24
+
+# Using PowerShell Network Scanner
+powershell "1..254 | ForEach-Object {Test-NetConnection -ComputerName 192.168.137.$_ -Port 80 -InformationLevel Quiet}"
+
+==================================================
+6. BACKUP HOTSPOT CONFIGURATION
+==================================================
+
+Method 1: Registry Export
+------------------------
+# Export hotspot configuration
+reg export "HKLM\SYSTEM\CurrentControlSet\Services\icssvc\Settings" hotspot-config-backup.reg
+
+# Export network profiles
+netsh wlan export profile folder=C:\temp key=clear
+
+Method 2: Complete Network Export
+--------------------------------
+# Export all network settings
+netsh dump > network-settings-backup.txt
+
+# Export wireless profiles
+netsh wlan show profiles
+netsh wlan export profile name="ProfileName" folder=C:\backup
+
+Method 3: System File Backup
+---------------------------
+# Backup relevant system files
+copy "C:\Windows\System32\config\SYSTEM" "C:\backup\SYSTEM.bak"
+
+==================================================
+7. RESTORE HOTSPOT CONFIGURATION
+==================================================
+
+Method 1: Registry Import
+------------------------
+# Import registry backup
+reg import hotspot-config-backup.reg
+
+# Restart services after import
+net stop "icssvc"
+net start "icssvc"
+
+Method 2: netsh restore
+----------------------
+# Restore network settings
+netsh exec network-settings-backup.txt
+
+# Import wireless profiles
+netsh wlan add profile filename="ProfileName.xml"
+
+==================================================
+8. RESET HOTSPOT SERVICE
+==================================================
+
+Method 1: Service Management
+---------------------------
+# Stop and restart Internet Connection Sharing
+net stop "SharedAccess"
+net start "SharedAccess"
+
+# Stop and restart WLAN services
+net stop "Wlansvc"
+net start "Wlansvc"
+
+# Stop and restart Windows Connection Manager
+net stop "Wcmsvc"
+net start "Wcmsvc"
+
+Method 2: Service Reset via SC
+-----------------------------
+# Reset ICS service
+sc stop SharedAccess
+sc start SharedAccess
+
+# Reset WLAN AutoConfig
+sc stop Wlansvc
+sc start Wlansvc
+
+Method 3: Full Network Stack Reset
+---------------------------------
+# Reset network stack (requires restart)
+netsh winsock reset
+netsh int ip reset
+netsh advfirewall reset
+
+# Reset network adapters
+netsh int ip reset resetlog.txt
+
+==================================================
+9. ALTERNATIVE DEVICE DETECTION METHODS
+==================================================
+
+Method 1: ARP Table Monitoring
+-----------------------------
+# Continuous ARP monitoring
+:loop
+arp -a | findstr "192.168.137"
+timeout /t 5 /nobreak >nul
+goto loop
+
+Method 2: Network Ping Sweep
+---------------------------
+# Batch ping sweep
+@echo off
+set subnet=192.168.137
+for /L %%i in (1,1,254) do (
+    ping -n 1 -w 1000 %subnet%.%%i | find "Reply from" && echo %subnet%.%%i is online
+)
+
+Method 3: Netstat Connection Tracking
+------------------------------------
+# Monitor active connections
+netstat -an 5 | findstr ":192.168.137"
+
+Method 4: Event Log Monitoring
+-----------------------------
+# Monitor DHCP events
+wevtutil qe System /f:text | findstr /i "dhcp"
+
+# Monitor network events
+wevtutil qe "Microsoft-Windows-WLAN-AutoConfig/Operational" /f:text
+
+==================================================
+10. TROUBLESHOOTING COMMANDS
+==================================================
+
+Network Diagnostics
+------------------
+# Network troubleshooting
+netsh int ip reset
+netsh winsock reset
+
+# DNS flush
+ipconfig /flushdns
+
+# Release and renew IP
+ipconfig /release
+ipconfig /renew
+
+Interface Management
+------------------
+# Show all network interfaces
+netsh interface show interface
+
+# Enable/disable interface
+netsh interface set interface "Wi-Fi" enabled
+netsh interface set interface "Wi-Fi" disabled
+
+Firewall Rules
+--------------
+# Show firewall rules
+netsh advfirewall firewall show rule all
+
+# Add firewall rule for hotspot
+netsh advfirewall firewall add rule name="Allow Hotspot" dir=in action=allow protocol=TCP localport=80
+
+Driver Information
+-----------------
+# Show network driver details
+driverquery | findstr /i network
+
+# Device manager export
+devmgmt.msc
+
+==================================================
+11. WINDOWS 10 SPECIFIC REGISTRY LOCATIONS
+==================================================
+
+Mobile Hotspot Settings:
+-----------------------
+HKLM\SOFTWARE\Microsoft\WcmSvc\wifinetworkmanager\config
+HKLM\SYSTEM\CurrentControlSet\Services\icssvc\Settings
+HKLM\SOFTWARE\Policies\Microsoft\Windows\Network Connections
+
+Network Profiles:
+----------------
+HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles
+
+Wireless Settings:
+-----------------
+HKLM\SOFTWARE\Microsoft\WlanSvc\Parameters\Profiles
+
+==================================================
+12. ALTERNATIVE TOOLS (if scripts fail)
+==================================================
+
+Built-in Windows Tools:
+----------------------
+- netsh (primary tool)
+- netstat
+- arp
+- ipconfig
+- wmic
+- reg
+- sc (service control)
+
+Third-party Tools (free):
+------------------------
+- Nmap (port scanning)
+- Wireless Network Watcher (NirSoft)
+- WhoIsConnectedSniffer (NirSoft)
+- SoftPerfect Network Scanner
+- Advanced IP Scanner
+
+PowerShell Alternatives:
+-----------------------
+- Get-NetAdapter
+- Get-NetIPConfiguration
+- Get-NetNeighbor
+- Test-NetConnection
+- Get-DnsClientCache
+
+==================================================
+13. COMMAND LINE AUTOMATION EXAMPLES
+==================================================
+
+Batch Script for Hotspot Enable:
+-------------------------------
+@echo off
+echo Setting up Windows 10 Hosted Network...
+netsh wlan set hostednetwork mode=allow ssid="TestHotspot" key="12345678"
+netsh wlan start hostednetwork
+echo Hotspot started. Configure Internet Connection Sharing manually.
+pause
+
+PowerShell Network Scan:
+-----------------------
+1..254 | ForEach-Object {
+    $ip = "192.168.137.$_"
+    if (Test-Connection -ComputerName $ip -Count 1 -Quiet) {
+        Write-Host "$ip is online"
+    }
+}
+
+Registry Backup Script:
+----------------------
+@echo off
+set backupdir=C:\HotspotBackup
+mkdir %backupdir%
+reg export "HKLM\SYSTEM\CurrentControlSet\Services\icssvc\Settings" "%backupdir%\icssvc.reg"
+netsh wlan export profile folder=%backupdir% key=clear
+echo Backup completed to %backupdir%
+
+==================================================
+14. TESTING PROCEDURE
+==================================================
+
+1. Try our PowerShell scripts first
+2. If scripts fail, use netsh wlan commands
+3. If netsh fails, try direct registry methods
+4. For device detection, start with arp -a
+5. Use ping sweep if ARP table is empty
+6. Try Windows built-in network troubleshooter
+7. Check Windows Event Logs for errors
+8. Verify network adapter drivers
+9. Test with third-party tools if needed
+10. As last resort, use GUI (ms-settings:network-mobilehotspot)
+
+==================================================
+15. ERROR CODES AND SOLUTIONS
+==================================================
+
+Common Errors:
+-------------
+- "The hosted network couldn't be started"
+  Solution: Check adapter drivers, run as admin
+
+- "The hosted network isn't available"
+  Solution: netsh wlan show drivers, update drivers
+
+- "The group or resource is not in the correct state"
+  Solution: Reset network stack, restart services
+
+- Access denied errors
+  Solution: Run commands as Administrator
+
+Registry Access Errors:
+----------------------
+- Use "reg add" with /f flag to force
+- Ensure running as Administrator
+- Check UAC settings
+- Verify registry permissions
+
+==================================================
+END OF TESTING ALTERNATIVES FILE
+==================================================
+
+Note: Test these alternatives in order of preference. Start with the simplest 
+methods and progress to more complex ones only if needed. Always backup your 
+system before making registry changes.
+
+Last Updated: 2025-01-16
+Windows 10 Compatibility: All versions (1607-22H2) 

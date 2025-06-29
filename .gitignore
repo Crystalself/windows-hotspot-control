@@ -1,0 +1,80 @@
+# Windows Hotspot Control - .gitignore
+
+# Backup files
+hotspot-backup-*.json
+*.bak
+*.backup
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Windows PowerShell execution policy
+ExecutionPolicy.txt
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+
+# PowerShell transcript files
+PowerShell_transcript.*
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.nfs*
+
+# Editor backup files
+*.swp
+*.swo
+*~
+
+# Personal test files
+test-*
+debug-*
+personal-*
+
+# Sensitive information
+passwords.txt
+credentials.txt
+api-keys.txt
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.msi
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Node modules (if any)
+node_modules/
+
+# Python cache (if any)
+__pycache__/
+*.pyc
+*.pyo
+
+# Local configuration files
+config.local.*
+.env.local 
