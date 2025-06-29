@@ -2,6 +2,49 @@
 
 This repository contains PowerShell scripts to monitor and manage Windows Mobile Hotspot functionality.
 
+## ⚠️ **IMPORTANT: Admin Privileges Required**
+
+**⚡ For best results, always run PowerShell or Command Prompt as Administrator before using these scripts.**
+
+Most hotspot operations (enable, disable, set credentials, restore) require administrator privileges to access Windows system APIs and registry settings. While the scripts will attempt to auto-elevate when needed, starting with admin privileges ensures:
+- ✅ **No interruptions** during script execution
+- ✅ **Faster operations** (no elevation delays)
+- ✅ **Better error handling** and system access
+- ✅ **Reliable API access** to Windows Runtime
+
+**To run as Administrator:**
+1. Right-click **PowerShell** or **Command Prompt**
+2. Select **"Run as administrator"**
+3. Navigate to the script directory
+4. Execute commands normally
+
+---
+
+## 📋 **Hotspot Manager Command Reference**
+
+The **unified hotspot manager** (`hotspot-manager.ps1`) provides all functionality through a single interface. Here's what each command does with and without admin privileges:
+
+| Command | Purpose | **✅ With Admin Privileges** | **⚠️ Without Admin Privileges** | Notes |
+|---------|---------|------------------------------|----------------------------------|-------|
+| **`status`** | Get hotspot info & current settings | ✅ **Full access**: Complete status, SSID, password, band, device count via Windows Runtime API | ⚠️ **Limited**: Basic status only, may fall back to registry reading | Read-only operation, works in both modes |
+| **`enable`** | Turn ON mobile hotspot | ✅ **SUCCESS**: Hotspot enabled via Windows Runtime API<br/>📱 Returns: `{"Success":true, "Data":{"Status":"ON"}}` | ❌ **FAILS**: Access denied to Windows Runtime<br/>🚫 Returns: `{"Success":false, "Error":"Admin required"}` | **Requires Admin** - Must have system-level access |
+| **`disable`** | Turn OFF mobile hotspot | ✅ **SUCCESS**: Hotspot disabled via Windows Runtime API<br/>📱 Returns: `{"Success":true, "Data":{"Status":"OFF"}}` | ❌ **FAILS**: Access denied to Windows Runtime<br/>🚫 Returns: `{"Success":false, "Error":"Admin required"}` | **Requires Admin** - Must have system-level access |
+| **`devices`** | List connected devices | ✅ **Enhanced**: Full device detection, ARP table access, hostname resolution<br/>📱 Returns: Device list with IPs, MACs, hostnames, vendors | ⚠️ **Basic**: Limited ARP access, may miss some devices<br/>📱 Returns: Partial device information | Works better with admin for full network access |
+| **`set-credentials`** | Update SSID/password/band | ✅ **SUCCESS**: Registry updated, settings applied immediately<br/>📱 Returns: `{"Success":true, "Data":{"SSID":"...", "Band":"..."}}` | ❌ **FAILS**: Registry access denied<br/>🚫 Returns: `{"Success":false, "Error":"Registry access denied"}` | **Requires Admin** - Must write to system registry |
+| **`backup`** | Save current config to JSON | ✅ **Complete**: All settings backed up including secure data<br/>📱 Returns: `{"Success":true, "Data":{"BackupFile":"..."}}` | ⚠️ **Partial**: May miss some registry settings<br/>📱 Returns: Basic backup with limited data | Works in both modes, better data with admin |
+| **`restore`** | Load config from backup file | ✅ **SUCCESS**: Configuration restored, registry updated<br/>📱 Returns: `{"Success":true, "Message":"Configuration restored"}` | ❌ **FAILS**: Cannot modify registry settings<br/>🚫 Returns: `{"Success":false, "Error":"Admin required"}` | **Requires Admin** - Calls `set-credentials` internally |
+| **`reset`** | Restart hotspot service | ✅ **SUCCESS**: Internet Connection Sharing service restarted<br/>📱 Returns: `{"Success":true, "Message":"Service reset"}` | ❌ **FAILS**: Service control access denied<br/>🚫 Returns: `{"Success":false, "Error":"Service access denied"}` | **Requires Admin** - Must control Windows services |
+| **`help`** | Show usage documentation | ✅ **Full help**: Complete command reference and examples | ✅ **Full help**: Complete command reference and examples | Documentation only, works in both modes |
+
+### **🎯 Key Takeaways:**
+- **📱 JSON Output**: All commands return structured JSON regardless of privilege level
+- **🔒 Admin Required**: `enable`, `disable`, `set-credentials`, `restore`, `reset` need admin privileges
+- **📊 Enhanced with Admin**: `status`, `devices`, `backup` work better with admin access
+- **⚡ No Hanging**: All commands complete immediately with proper JSON responses
+- **🛡️ Auto-Elevation**: Individual scripts attempt to request admin when needed (interactive mode only)
+
+---
+
 ## Scripts Available
 
 ### 1. **get-hotspot-info.ps1** / **get-hotspot-info.bat**
@@ -247,6 +290,187 @@ All commands return structured JSON perfect for integration:
 # 9. Check which devices are connected to your hotspot
 .\get-connected-devices.bat
 ```
+
+## 🖥️ **Programmatic Integration (RECOMMENDED)**
+
+### **✅ Use Hotspot Manager for Programmatic Access**
+For **automation, scripting, and integration** with other applications, **always use the unified hotspot manager**. It provides:
+- **Consistent JSON output** for all operations
+- **No hanging or user prompts** in programmatic mode
+- **Proper error handling** with structured responses
+- **Admin privilege management** built-in
+
+### **PowerShell Integration Examples**
+
+#### **Basic Usage**
+```powershell
+# Get status
+$result = .\scripts\hotspot-manager.ps1 status | ConvertFrom-Json
+Write-Host "Hotspot Status: $($result.Data.Status)"
+
+# Enable hotspot
+$enableResult = .\scripts\hotspot-manager.ps1 enable | ConvertFrom-Json
+if ($enableResult.Success) {
+    Write-Host "Hotspot enabled successfully"
+}
+
+# Set credentials
+$credResult = .\scripts\hotspot-manager.ps1 set-credentials "MyWiFi" "Password123" "5GHz" | ConvertFrom-Json
+Write-Host "SSID updated to: $($credResult.Data.SSID)"
+
+# Get connected devices
+$devices = .\scripts\hotspot-manager.ps1 devices | ConvertFrom-Json
+Write-Host "Connected devices: $($devices.Data.DeviceCount)"
+```
+
+#### **Advanced Automation Script**
+```powershell
+# Complete hotspot management workflow
+function Manage-Hotspot {
+    param($Action, $SSID, $Password)
+    
+    try {
+        # Check current status
+        $status = .\scripts\hotspot-manager.ps1 status | ConvertFrom-Json
+        Write-Host "Current Status: $($status.Data.Status)"
+        
+        # Perform action based on parameter
+        switch ($Action) {
+            "setup" {
+                # Set credentials
+                $cred = .\scripts\hotspot-manager.ps1 set-credentials $SSID $Password "Auto" | ConvertFrom-Json
+                if ($cred.Success) {
+                    # Enable hotspot
+                    $enable = .\scripts\hotspot-manager.ps1 enable | ConvertFrom-Json
+                    return $enable.Success
+                }
+            }
+            "backup" {
+                $backup = .\scripts\hotspot-manager.ps1 backup | ConvertFrom-Json
+                Write-Host "Backup created: $($backup.Data.BackupFile)"
+            }
+            "disable" {
+                $disable = .\scripts\hotspot-manager.ps1 disable | ConvertFrom-Json
+                return $disable.Success
+            }
+        }
+    } catch {
+        Write-Error "Hotspot management failed: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# Usage examples
+Manage-Hotspot -Action "setup" -SSID "OfficeWiFi" -Password "SecurePass2024"
+Manage-Hotspot -Action "backup"
+Manage-Hotspot -Action "disable"
+```
+
+### **Python Integration**
+```python
+import subprocess
+import json
+
+def hotspot_command(command, *args):
+    """Execute hotspot manager command and return parsed JSON"""
+    cmd = ['powershell', '-ExecutionPolicy', 'Bypass', '-File', 
+           'scripts/hotspot-manager.ps1', command] + list(args)
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd='.')
+    
+    if result.returncode == 0:
+        return json.loads(result.stdout)
+    else:
+        raise Exception(f"Command failed: {result.stderr}")
+
+# Usage examples
+status = hotspot_command('status')
+print(f"Hotspot Status: {status['Data']['Status']}")
+
+# Set credentials and enable
+cred_result = hotspot_command('set-credentials', 'MyWiFi', 'Password123', '5GHz')
+if cred_result['Success']:
+    enable_result = hotspot_command('enable')
+    print(f"Hotspot enabled: {enable_result['Success']}")
+
+# Get devices
+devices = hotspot_command('devices')
+print(f"Connected devices: {devices['Data']['DeviceCount']}")
+```
+
+### **Node.js Integration**
+```javascript
+const { execSync } = require('child_process');
+
+function hotspotCommand(command, ...args) {
+    const cmd = `powershell -ExecutionPolicy Bypass -File scripts/hotspot-manager.ps1 ${command} ${args.join(' ')}`;
+    try {
+        const result = execSync(cmd, { encoding: 'utf8' });
+        return JSON.parse(result);
+    } catch (error) {
+        throw new Error(`Hotspot command failed: ${error.message}`);
+    }
+}
+
+// Usage examples
+const status = hotspotCommand('status');
+console.log(`Hotspot Status: ${status.Data.Status}`);
+
+// Async workflow
+async function setupHotspot() {
+    try {
+        const cred = hotspotCommand('set-credentials', 'MyWiFi', 'Password123', 'Auto');
+        if (cred.Success) {
+            const enable = hotspotCommand('enable');
+            console.log(`Hotspot setup complete: ${enable.Success}`);
+        }
+    } catch (error) {
+        console.error('Setup failed:', error.message);
+    }
+}
+```
+
+### **⚠️ Individual Scripts with NonInteractive Flag**
+
+If you **must use individual scripts** (not recommended for automation), **always include the `-NonInteractive` parameter** to prevent hanging:
+
+```powershell
+# ✅ CORRECT - Won't hang
+.\scripts\get-hotspot-info.ps1 -NonInteractive
+.\scripts\get-connected-devices.ps1 -NonInteractive
+.\scripts\set-hotspot-credentials.ps1 "WiFi" "Pass123" "5GHz" -NonInteractive
+.\scripts\restore-hotspot-config.ps1 "backup.json" -NonInteractive
+
+# ❌ WRONG - Will hang waiting for user input
+.\scripts\get-hotspot-info.ps1
+.\scripts\get-connected-devices.ps1
+.\scripts\set-hotspot-credentials.ps1 "WiFi" "Pass123" "5GHz"
+```
+
+### **JSON Response Structure**
+All hotspot manager commands return consistent JSON:
+```json
+{
+  "Success": true,           // Boolean: operation success
+  "Operation": "status",     // String: command executed
+  "Message": "description",  // String: human-readable result
+  "Data": {                  // Object: command-specific data
+    "Status": "ON",
+    "SSID": "MyWiFi",
+    "ClientCount": 2
+  },
+  "Timestamp": "2025-06-29 15:30:00",  // String: operation time
+  "Error": "error message"   // String: only present if Success=false
+}
+```
+
+### **🎯 Best Practices for Integration**
+1. **Always use `hotspot-manager.ps1`** instead of individual scripts
+2. **Parse JSON responses** to check `Success` field
+3. **Handle errors gracefully** using try-catch blocks
+4. **Run with admin privileges** for enable/disable/credentials operations
+5. **Use meaningful SSID and password validation** in your applications
+6. **Consider backup/restore workflow** for configuration management
 
 ## 🔍 Example Output
 

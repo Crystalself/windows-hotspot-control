@@ -4,7 +4,9 @@
 
 param(
     [Parameter(Mandatory=$false, Position=0)]
-    [string]$BackupPath = ""
+    [string]$BackupPath = "",
+    
+    [switch]$NonInteractive = $false
 )
 
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -228,12 +230,16 @@ Function Create-BackupConfig($credentials, $status) {
 }
 
 # Main execution
-Clear-Host
+if (-not $NonInteractive) {
+    Clear-Host
+}
 
-Write-Host "=================================================" -ForegroundColor Green
-Write-Host "      Windows Mobile Hotspot Configuration Backup" -ForegroundColor Green
-Write-Host "=================================================" -ForegroundColor Green
-Write-Host ""
+if (-not $NonInteractive) {
+    Write-Host "=================================================" -ForegroundColor Green
+    Write-Host "      Windows Mobile Hotspot Configuration Backup" -ForegroundColor Green
+    Write-Host "=================================================" -ForegroundColor Green
+    Write-Host ""
+}
 
 # Get current hotspot configuration
 Write-Host "Reading current hotspot configuration..." -ForegroundColor Cyan
@@ -249,8 +255,10 @@ if (-not $credentials.Success) {
     Write-Host "2. Try running as Administrator" -ForegroundColor White
     Write-Host "3. Ensure Mobile Hotspot feature is available on your system" -ForegroundColor White
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -305,5 +313,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "Press Enter to exit..."
-Read-Host 
+if (-not $NonInteractive) {
+    Write-Host "Press Enter to exit..."
+    Read-Host
+} 

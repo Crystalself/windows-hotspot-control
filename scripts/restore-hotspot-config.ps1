@@ -4,7 +4,9 @@
 
 param(
     [Parameter(Mandatory=$false, Position=0)]
-    [string]$BackupFile = ""
+    [string]$BackupFile = "",
+    
+    [switch]$NonInteractive = $false
 )
 
 Function Test-AdminPrivileges() {
@@ -106,11 +108,16 @@ Function Restore-HotspotConfiguration($config, $backupFilePath) {
 
         # Check if we need admin privileges now
         if (-not (Test-AdminPrivileges)) {
+            if ($NonInteractive) {
+                # In non-interactive mode, don't attempt elevation - just return error
+                return $false
+            }
+            
             Write-Host "Administrator privileges required to apply hotspot configuration..." -ForegroundColor Yellow
             Write-Host "Requesting elevation..." -ForegroundColor Yellow
             Write-Host ""
             
-            # Elevate with current parameters
+            # Elevate with current parameters (interactive mode only)
             $scriptPath = $MyInvocation.ScriptName
             $arguments = "`"$backupFilePath`""
             
@@ -153,7 +160,11 @@ Function Restore-HotspotConfiguration($config, $backupFilePath) {
         }
 
         # Execute the set-hotspot-credentials script
-        $result = & $setCredentialsScript $config.SSID $config.Password $band
+        if ($NonInteractive) {
+            $result = & $setCredentialsScript $config.SSID $config.Password $band -NonInteractive
+        } else {
+            $result = & $setCredentialsScript $config.SSID $config.Password $band
+        }
         
         # Check if the script succeeded (assumes it returns appropriate exit codes)
         if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null) {
@@ -171,12 +182,16 @@ Function Restore-HotspotConfiguration($config, $backupFilePath) {
 }
 
 # Main execution
-Clear-Host
+if (-not $NonInteractive) {
+    Clear-Host
+}
 
-Write-Host "==================================================" -ForegroundColor Green
-Write-Host "      Windows Mobile Hotspot Configuration Restore" -ForegroundColor Green
-Write-Host "==================================================" -ForegroundColor Green
-Write-Host ""
+if (-not $NonInteractive) {
+    Write-Host "==================================================" -ForegroundColor Green
+    Write-Host "      Windows Mobile Hotspot Configuration Restore" -ForegroundColor Green
+    Write-Host "==================================================" -ForegroundColor Green
+    Write-Host ""
+}
 
 # Note: Admin privileges will be requested only when needed (before applying changes)
 
@@ -194,8 +209,10 @@ if ($BackupFile -eq "" -or -not (Test-Path $BackupFile)) {
     Write-Host "1. Specify a backup file: .\restore-hotspot-config.bat `"backup-file.json`"" -ForegroundColor White
     Write-Host "2. Create a backup first: .\backup-hotspot-config.bat" -ForegroundColor White
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -205,8 +222,10 @@ Write-Host ""
 
 # Validate backup file
 if (-not (Test-BackupFileValid $BackupFile)) {
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -215,8 +234,10 @@ $config = Get-BackupConfiguration $BackupFile
 if (-not $config) {
     Write-Host "ERROR: Failed to read configuration from backup file!" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -224,26 +245,36 @@ if (-not $config) {
 Write-Host "WARNING: This will change your current hotspot settings!" -ForegroundColor Yellow
 Write-Host "Any devices currently connected will be disconnected." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "Press Enter to continue with restore, or Ctrl+C to cancel..."
-Read-Host
+if (-not $NonInteractive) {
+    Write-Host "Press Enter to continue with restore, or Ctrl+C to cancel..."
+    Read-Host
+}
 
 # Perform restore
-Write-Host "Restoring hotspot configuration..." -ForegroundColor Green
+if (-not $NonInteractive) {
+    Write-Host "Restoring hotspot configuration..." -ForegroundColor Green
+}
 $success = Restore-HotspotConfiguration $config $BackupFile
 
 if ($success) {
-    Write-Host ""
-    Write-Host "✅ RESTORE COMPLETE: Configuration successfully restored from backup!" -ForegroundColor Green
+    if (-not $NonInteractive) {
+        Write-Host ""
+        Write-Host "✅ RESTORE COMPLETE: Configuration successfully restored from backup!" -ForegroundColor Green
+    }
+    exit 0
 } else {
-    Write-Host ""
-    Write-Host "❌ RESTORE FAILED: Could not restore hotspot configuration!" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "1. Make sure you're running as Administrator" -ForegroundColor White
-    Write-Host "2. Check if Mobile Hotspot feature is available on your system" -ForegroundColor White
-    Write-Host "3. Try running .\reset-hotspot-service.bat first" -ForegroundColor White
-    Write-Host "4. Verify the backup file is not corrupted" -ForegroundColor White
-    Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host ""
+        Write-Host "❌ RESTORE FAILED: Could not restore hotspot configuration!" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Troubleshooting:" -ForegroundColor Yellow
+        Write-Host "1. Make sure you're running as Administrator" -ForegroundColor White
+        Write-Host "2. Check if Mobile Hotspot feature is available on your system" -ForegroundColor White
+        Write-Host "3. Try running .\reset-hotspot-service.bat first" -ForegroundColor White
+        Write-Host "4. Verify the backup file is not corrupted" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
+    exit 1
 } 

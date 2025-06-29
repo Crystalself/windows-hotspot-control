@@ -2,18 +2,26 @@
 # This script resets the Internet Connection Sharing service
 # Run as Administrator to resolve hotspot service issues
 
+param(
+    [switch]$NonInteractive = $false
+)
+
 Function Test-AdminPrivileges() {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]$currentUser
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-Clear-Host
+if (-not $NonInteractive) {
+    Clear-Host
+}
 
-Write-Host "=============================================" -ForegroundColor Green
-Write-Host "    Windows Mobile Hotspot Service Reset" -ForegroundColor Green
-Write-Host "=============================================" -ForegroundColor Green
-Write-Host ""
+if (-not $NonInteractive) {
+    Write-Host "=============================================" -ForegroundColor Green
+    Write-Host "    Windows Mobile Hotspot Service Reset" -ForegroundColor Green
+    Write-Host "=============================================" -ForegroundColor Green
+    Write-Host ""
+}
 
 # Check for admin privileges
 if (-not (Test-AdminPrivileges)) {
@@ -22,8 +30,10 @@ if (-not (Test-AdminPrivileges)) {
     Write-Host "This script must run as Administrator to restart services." -ForegroundColor Yellow
     Write-Host "The batch file will auto-elevate when you run it." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -64,5 +74,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "Press Enter to exit..."
-Read-Host 
+if (-not $NonInteractive) {
+    Write-Host "Press Enter to exit..."
+    Read-Host
+} 

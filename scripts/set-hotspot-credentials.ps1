@@ -12,7 +12,9 @@ param(
     
     [Parameter(Mandatory=$false, Position=2)]
     [ValidateSet("2.4GHz", "5GHz", "Auto")]
-    [string]$Band = "2.4GHz"
+    [string]$Band = "2.4GHz",
+    
+    [switch]$NonInteractive = $false
 )
 
 Function Test-AdminPrivileges() {
@@ -99,12 +101,16 @@ Function Set-HotspotCredentials($ssid, $password, $band) {
 }
 
 # Main execution
-Clear-Host
+if (-not $NonInteractive) {
+    Clear-Host
+}
 
-Write-Host "=================================================" -ForegroundColor Green
-Write-Host "      Windows Mobile Hotspot Credentials Setter" -ForegroundColor Green
-Write-Host "=================================================" -ForegroundColor Green
-Write-Host ""
+if (-not $NonInteractive) {
+    Write-Host "=================================================" -ForegroundColor Green
+    Write-Host "      Windows Mobile Hotspot Credentials Setter" -ForegroundColor Green
+    Write-Host "=================================================" -ForegroundColor Green
+    Write-Host ""
+}
 
 # Validate administrator privileges
 if (-not (Test-AdminPrivileges)) {
@@ -113,8 +119,10 @@ if (-not (Test-AdminPrivileges)) {
     Write-Host "This script must run as Administrator to modify registry." -ForegroundColor Yellow
     Write-Host "Right-click the batch file and select 'Run as administrator'" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -130,8 +138,10 @@ if ($SSID.Length -eq 0 -or $SSID.Length -gt 32) {
     Write-Host "ERROR: SSID must be between 1 and 32 characters!" -ForegroundColor Red
     Write-Host "Current SSID length: $($SSID.Length)" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -141,8 +151,10 @@ if ($Password.Length -lt 8 -or $Password.Length -gt 63) {
     Write-Host "Current password length: $($Password.Length)" -ForegroundColor Red
     Write-Host "WPA2 requires minimum 8 characters for security." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Press Enter to exit..."
-    Read-Host
+    if (-not $NonInteractive) {
+        Write-Host "Press Enter to exit..."
+        Read-Host
+    }
     exit 1
 }
 
@@ -153,8 +165,10 @@ Write-Host "  New Password: '$Password'" -ForegroundColor Cyan
 Write-Host "  New Band: $Band" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "WARNING: This will change your mobile hotspot settings!" -ForegroundColor Yellow
-Write-Host "Press Enter to continue, or Ctrl+C to cancel..."
-Read-Host
+if (-not $NonInteractive) {
+    Write-Host "Press Enter to continue, or Ctrl+C to cancel..."
+    Read-Host
+}
 
 # Apply changes
 $success = Set-HotspotCredentials $SSID $Password $Band
@@ -180,5 +194,7 @@ if ($success) {
 }
 
 Write-Host ""
-Write-Host "Press Enter to exit..."
-Read-Host 
+if (-not $NonInteractive) {
+    Write-Host "Press Enter to exit..."
+    Read-Host
+} 

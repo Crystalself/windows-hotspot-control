@@ -395,8 +395,5 @@ if ($NonInteractive) {
         exit 1
     }
 
-    Write-Host ""
-    Write-Host "Press Enter to exit..." -ForegroundColor Gray
-    Read-Host
     exit 0
 } 

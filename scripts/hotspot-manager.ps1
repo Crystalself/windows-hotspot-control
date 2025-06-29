@@ -170,7 +170,7 @@ Function Set-HotspotCredentials {
         return New-Result -Success $false -Operation "set-credentials" -ErrorMessage "SSID and Password are required"
     }
     
-    $args = @("-NonInteractive", $SSID, $Password, $Band)
+    $args = @($SSID, $Password, $Band, "-NonInteractive")
     $result = Invoke-HotspotScript "set-hotspot-credentials.ps1" $args
     
     if ($result.Success) {
@@ -210,15 +210,36 @@ Function Backup-HotspotConfig {
 }
 
 Function Restore-HotspotConfig {
-    $args = @("-NonInteractive")
-    if ($BackupFile) {
-        $args += $BackupFile
+    # For restore command, allow backup file as positional parameter (using SSID position)
+    if (-not $BackupFile -and $SSID) {
+        $BackupFile = $SSID
     }
+    
+    # For programmatic use, require backup file to be specified
+    if (-not $BackupFile) {
+        return New-Result -Success $false -Operation "restore" -ErrorMessage "BackupFile parameter is required for programmatic restore operation. Use -BackupFile parameter or specify filename as argument."
+    }
+    
+    # Validate backup file exists
+    if (-not (Test-Path $BackupFile)) {
+        # Try relative path from script directory
+        $relativePath = Join-Path $ScriptDir $BackupFile
+        if (Test-Path $relativePath) {
+            $BackupFile = $relativePath
+        } else {
+            return New-Result -Success $false -Operation "restore" -ErrorMessage "Backup file not found: $BackupFile"
+        }
+    }
+    
+    $args = @("-NonInteractive", $BackupFile)
     
     $result = Invoke-HotspotScript "restore-hotspot-config.ps1" $args
     
     if ($result.Success) {
-        return New-Result -Success $true -Operation "restore" -Message "Configuration restored successfully"
+        return New-Result -Success $true -Operation "restore" -Message "Configuration restored successfully from $(Split-Path $BackupFile -Leaf)" -Data @{
+            BackupFile = Split-Path $BackupFile -Leaf
+            BackupPath = $BackupFile
+        }
     }
     else {
         return New-Result -Success $false -Operation "restore" -ErrorMessage "Failed to restore configuration: $($result.Output)"
